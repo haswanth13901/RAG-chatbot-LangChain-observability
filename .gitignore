@@ -1,0 +1,108 @@
+# ─────────────────────────────────────────────
+#  RewardPlus RAG Chatbot — .gitignore
+# ─────────────────────────────────────────────
+
+
+# ── Secrets & Environment ─────────────────────
+.env
+.env.local
+.env.*.local
+
+
+# ── Python ────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+.Python
+
+# Distribution / packaging
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+
+# ── Virtual Environments ──────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+
+# ── Vector Database ───────────────────────────
+chroma_db/
+
+
+# ── Databases & Data Files ────────────────────
+*.db
+*.sqlite
+*.sqlite3
+*.pkl
+*.pickle
+
+
+# ── Logs ─────────────────────────────────────
+*.log
+logs/
+
+
+# ── Testing & Coverage ────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+
+# ── Type Checking ─────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyright/
+
+
+# ── Jupyter ───────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+
+# ── OS Files ──────────────────────────────────
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+
+# ── IDE / Editors ─────────────────────────────
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+
+# ── Keep these tracked ────────────────────────
+!requirements.txt
+!README.md
+!.env.example
