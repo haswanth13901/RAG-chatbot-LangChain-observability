@@ -1,14 +1,6 @@
 import os
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-)
-from app.config import (
-    GROQ_API_KEY, GOOGLE_API_KEY,
-    GROQ_CHAT_MODEL, GEMINI_CHAT_MODEL,
-)
-from app.prompts import SYSTEM_PROMPT
+from app.config import GROQ_API_KEY, GOOGLE_API_KEY, GROQ_CHAT_MODEL, GEMINI_CHAT_MODEL
+from app.prompts import build_prompt, build_blocked_prompt
 
 try:
     from langchain_groq import ChatGroq
@@ -51,10 +43,3 @@ def active_model_name() -> str:
     if ChatGoogleGenerativeAI is not None and GOOGLE_API_KEY:
         return GEMINI_CHAT_MODEL
     return "none"
-
-
-def build_prompt() -> ChatPromptTemplate:
-    return ChatPromptTemplate.from_messages([
-        SystemMessagePromptTemplate.from_template(SYSTEM_PROMPT),
-        HumanMessagePromptTemplate.from_template("{question}"),
-    ])
