@@ -1,4 +1,6 @@
+import hashlib
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
 
 from app.config import (
@@ -15,6 +17,20 @@ INSUFFICIENT_CONTEXT_RESPONSE = (
     "Please try rephrasing your question or contact our support team "
     "for assistance with this specific query."
 )
+
+
+def deduplicate(docs: list[Document]) -> list[Document]:
+    seen:   set  = set()
+    unique: list = []
+    for doc in docs:
+        content_hash = hashlib.md5(doc.page_content.strip().encode()).hexdigest()
+        if content_hash not in seen:
+            seen.add(content_hash)
+            unique.append(doc)
+    removed = len(docs) - len(unique)
+    if removed > 0:
+        print(f"[DEDUP] Removed {removed} duplicate chunk(s) — {len(unique)} unique remaining")
+    return unique
 
 
 class RAGChatSession:
@@ -44,7 +60,7 @@ class RAGChatSession:
     def _is_sufficient(self, docs: list) -> bool:
         sufficient = len(docs) >= MIN_RELEVANT_CHUNKS
         if not sufficient:
-            print(f"[SUFFICIENCY] Only {len(docs)} chunk(s) retrieved — minimum is {MIN_RELEVANT_CHUNKS}")
+            print(f"[SUFFICIENCY] Only {len(docs)} chunk(s) — minimum is {MIN_RELEVANT_CHUNKS}")
         return sufficient
 
     def invoke(self, question: str) -> str:
@@ -63,6 +79,8 @@ class RAGChatSession:
             threshold=SIMILARITY_THRESHOLD,
         )
         self.last_scores = scores
+
+        docs = deduplicate(docs)
 
         if not self._is_sufficient(docs):
             print(f"[SUFFICIENCY] Insufficient context — returning fallback response")
