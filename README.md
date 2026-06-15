@@ -459,7 +459,33 @@ asyncio.run(ask())
 
 ## 7-Stage Production RAG Pipeline — From Security to Generation
 
-![7-Stage Production RAG Pipeline](assets/pipeline.png)
+```mermaid
+flowchart TD
+    A([🧑 User Request]) --> B{API Key Auth\n& Rate Limit}
+    B -->|Fail| C([⛔ Error Response\n401 / 403 / 429])
+    B -->|Pass| D{Prompt\nInjection Check}
+    D -->|Unsafe| E([🚫 Blocked Response])
+    D -->|Safe| F[Similarity\nThreshold ≥ 0.3]
+    F --> G[Deduplication\nMD5 Hash]
+    G --> H{Retrieval\nSufficiency}
+    H -->|Insufficient| I([⚠️ Fallback Response])
+    H -->|Sufficient| J[Reranking\nFlashrankRerank Top 3]
+    J --> K[LLM Generation\nGroq LLaMA / Gemini]
+    K --> L([✅ ChatResponse\nwith Sources])
+
+    style A fill:#1a6b8a,color:#fff
+    style B fill:#b85c00,color:#fff
+    style C fill:#1a6b8a,color:#fff
+    style D fill:#b85c00,color:#fff
+    style E fill:#1a6b8a,color:#fff
+    style F fill:#b85c00,color:#fff
+    style G fill:#1a6b8a,color:#fff
+    style H fill:#b85c00,color:#fff
+    style I fill:#1a6b8a,color:#fff
+    style J fill:#1a6b8a,color:#fff
+    style K fill:#1a6b8a,color:#fff
+    style L fill:#1a6b8a,color:#fff
+```
 
 ### Key Components
 
