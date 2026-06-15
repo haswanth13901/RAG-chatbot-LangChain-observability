@@ -1,10 +1,20 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import Chroma
 
-from app.config import MEMORY_WINDOW, RETRIEVAL_K, SIMILARITY_THRESHOLD
+from app.config import (
+    MEMORY_WINDOW, RETRIEVAL_K,
+    SIMILARITY_THRESHOLD, MIN_RELEVANT_CHUNKS,
+)
 from app.prompts import build_prompt, build_blocked_prompt
 from app.security import check_injection
 from app.vector_store import retrieve_with_threshold
+
+INSUFFICIENT_CONTEXT_RESPONSE = (
+    "I wasn't able to find enough relevant information in the RewardPlus "
+    "policy documents to answer your question confidently. "
+    "Please try rephrasing your question or contact our support team "
+    "for assistance with this specific query."
+)
 
 
 class RAGChatSession:
@@ -31,6 +41,12 @@ class RAGChatSession:
         self.source_documents = docs
         return "\n\n---\n\n".join(doc.page_content for doc in docs)
 
+    def _is_sufficient(self, docs: list) -> bool:
+        sufficient = len(docs) >= MIN_RELEVANT_CHUNKS
+        if not sufficient:
+            print(f"[SUFFICIENCY] Only {len(docs)} chunk(s) retrieved — minimum is {MIN_RELEVANT_CHUNKS}")
+        return sufficient
+
     def invoke(self, question: str) -> str:
         security = check_injection(question)
         if not security.is_safe:
@@ -48,7 +64,11 @@ class RAGChatSession:
         )
         self.last_scores = scores
 
-        context = self._format_docs(docs) if docs else "No relevant policy information found."
+        if not self._is_sufficient(docs):
+            print(f"[SUFFICIENCY] Insufficient context — returning fallback response")
+            return INSUFFICIENT_CONTEXT_RESPONSE
+
+        context = self._format_docs(docs)
         history = self._format_history()
 
         chain  = self.prompt | self.llm | self.parser
