@@ -6,10 +6,11 @@ monitoring and observability pipeline — built with LangChain, Groq LLaMA,
 Google Gemini Embeddings, ChromaDB, and FastAPI.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.136+-green)
 ![LangChain](https://img.shields.io/badge/LangChain-1.3+-yellow)
 ![Groq](https://img.shields.io/badge/Groq-LLaMA3.1-orange)
 ![ChromaDB](https://img.shields.io/badge/ChromaDB-1.5+-red)
+![Security](https://img.shields.io/badge/Security-Production%20Grade-brightgreen)
 ![Status](https://img.shields.io/badge/Phase%201-Complete-brightgreen)
 ![Status](https://img.shields.io/badge/Phase%202-In%20Progress-yellow)
 
@@ -19,14 +20,15 @@ Google Gemini Embeddings, ChromaDB, and FastAPI.
 
 | Phase | Description | Status |
 |---|---|---|
-| [Phase 1 — RAG Chatbot](/) | LangChain + Groq + ChromaDB | ✅ Complete |
-| [Phase 2 — Monitoring](monitoring/) | Observability + CI/CD | 🚧 In Progress |
+| [Phase 1 — RAG Chatbot](/) | LangChain + Groq + ChromaDB + Production Checklist | ✅ Complete |
+| [Phase 2 — Monitoring](monitoring/) | Observability + MLOps + CI/CD | 🚧 In Progress |
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Production Security Checklist](#production-security-checklist)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Minimum Hardware Requirements](#minimum-hardware-requirements)
@@ -53,18 +55,41 @@ The system supports:
 - **Transaction analysis** with automatic point calculation
 - **Intelligent retrieval** using semantic search via ChromaDB
 - **Flexible LLM selection** with automatic fallback mechanisms
+- **Production-grade security** with a complete 7-point RAG safety checklist
+
+---
+
+## Production Security Checklist
+
+All 7 production RAG checklist items implemented and tested:
+
+| # | Check | Layer | Implementation |
+|---|---|---|---|
+| 1 | **Prompt Injection Protection** | LLM Security | 13 regex patterns + input sanitization (`security.py`) |
+| 2 | **Access Control** | API Security | API key auth + rate limiting 20 req/min (`access_control.py`) |
+| 3 | **Similarity Thresholding** | Retrieval Correctness | Min score 0.3 — drops irrelevant chunks (`vector_store.py`) |
+| 4 | **Retrieval Sufficiency** | Retrieval Correctness | Graceful fallback when context is insufficient (`chain.py`) |
+| 5 | **Deduplication** | Context Quality | MD5 hash-based duplicate chunk removal (`chain.py`) |
+| 6 | **Metadata Filtering** | Context Quality | Optional `doc_filter` to target specific documents (`chain.py`) |
+| 7 | **Reranking** | Performance | FlashrankRerank cross-encoder reordering (`chain.py`) |
 
 ---
 
 ## Features
 
-- 🤖 **RAG-Powered Chatbot** — Answers grounded in actual policy documents
-- 💬 **Conversation Management** — Session history for coherent multi-turn dialogues
+- 🔒 **Prompt Injection Defense** — 13 regex patterns block instruction overrides, persona hijacks, jailbreaks
+- 🛡️ **API Key Authentication** — All protected endpoints require `X-API-Key` header
+- ⏱️ **Rate Limiting** — In-memory sliding window, 20 requests per minute per key
+- 🎯 **Similarity Thresholding** — Minimum score cutoff prevents irrelevant chunks reaching the LLM
+- 📋 **Retrieval Sufficiency** — Graceful fallback response when context is too thin
+- 🔁 **Deduplication** — MD5 hash-based removal of duplicate chunks before generation
+- 🗂️ **Metadata Filtering** — Target `rewards_policy` or `terms_conditions` documents per query
+- 🏆 **Reranking** — FlashrankRerank cross-encoder reorders chunks by true relevance
+- 🤖 **RAG-Powered Chatbot** — Answers grounded in actual policy documents with citations
+- 💬 **Conversation Memory** — Per-session history with configurable window size
 - 💰 **Transaction Processing** — Points calculation with category-based multipliers
 - 🔄 **Multi-Model Support** — Groq LLaMA (primary) with Google Gemini fallback
-- 🧠 **Vector Search** — ChromaDB with Gemini embeddings for semantic retrieval
-- 📊 **Session Tracking** — Per-user sessions with configurable memory windows
-- ✅ **Health Monitoring** — Built-in endpoint for system status and model info
+- 🧠 **Semantic Search** — ChromaDB with Gemini embeddings + MMR diversity
 - 🚀 **FastAPI REST API** — Async, typed endpoints with Pydantic validation
 
 ---
@@ -73,17 +98,24 @@ The system supports:
 
 ### Core Framework
 - **Python 3.10+**
-- **FastAPI 0.115+** — Modern async web framework
+- **FastAPI 0.136+** — Modern async web framework
 - **Uvicorn 0.47+** — ASGI server
 
 ### AI & NLP
 - **LangChain 1.3+** — LLM orchestration and RAG pipeline
 - **LangChain Groq 1.1+** — Groq LLaMA integration (primary chat)
 - **LangChain Google GenAI 4.2+** — Gemini embeddings
+- **LangChain Classic 1.0+** — Stable chain components
 - **ChromaDB 1.5+** — In-process vector database
+- **FlashrankRerank** — CPU-friendly cross-encoder reranking
+
+### Security
+- **FastAPI Security** — API key header scheme
+- **Regex-based injection detection** — 13 patterns across 6 attack categories
+- **In-memory rate limiter** — Sliding window per API key
 
 ### Data & Validation
-- **Pydantic 2.8+** — Request/response validation
+- **Pydantic 2.13+** — Request/response validation
 - **LangChain Text Splitters 1.1+** — Document chunking
 - **Docx2txt 0.8** — Word document parsing
 
@@ -104,7 +136,7 @@ The system supports:
 | **Python** | 3.10 | 3.12 |
 | **Internet** | Required | Stable broadband |
 
-> **No GPU required.** All LLM inference runs via Groq/Gemini APIs. ChromaDB runs in-process — no Docker or external database needed.
+> **No GPU required.** All LLM inference runs via Groq/Gemini APIs. ChromaDB and FlashrankRerank run in-process on CPU — no Docker or external services needed.
 
 ### RAM Usage Breakdown
 
@@ -113,10 +145,9 @@ The system supports:
 | Python + FastAPI | ~150 MB |
 | ChromaDB in-process | ~200 MB |
 | LangChain + dependencies | ~300 MB |
+| FlashrankRerank model | ~100 MB |
 | OS overhead | ~1 GB |
-| **Total active** | **~1.6 GB** |
-
-8 GB is comfortable. 4 GB is workable — avoid running other heavy apps simultaneously.
+| **Total active** | **~1.75 GB** |
 
 ---
 
@@ -126,7 +157,7 @@ The system supports:
 rag-chatbot-langchain-observability/
 ├── main.py                        # FastAPI app, routes, session management
 ├── test_chatbot.py                # CLI demo and interactive REPL
-├── requirements.txt               # Python dependencies
+├── requirements.txt               # Pinned Python dependencies
 ├── .env                           # API keys (never committed)
 ├── .env.example                   # Template for required keys
 ├── .gitignore
@@ -134,11 +165,14 @@ rag-chatbot-langchain-observability/
 │
 ├── app/
 │   ├── __init__.py
-│   ├── config.py                  # Settings, reward rules, API keys
+│   ├── config.py                  # All settings, thresholds, reward rules
 │   ├── models.py                  # Pydantic request/response schemas
-│   ├── llm.py                     # LLM init, system prompt, fallback logic
-│   ├── chain.py                   # RAGChatSession — retrieval + generation
-│   ├── vector_store.py            # ChromaDB setup, document ingestion
+│   ├── prompts.py                 # Centralized prompt templates
+│   ├── security.py                # Prompt injection detection engine
+│   ├── access_control.py          # API key auth + rate limiting
+│   ├── llm.py                     # LLM init with Groq/Gemini fallback
+│   ├── chain.py                   # RAGChatSession — full production pipeline
+│   ├── vector_store.py            # ChromaDB setup, ingestion, threshold retrieval
 │   └── rewards.py                 # Points calculation engine
 │
 ├── Docs/                          # Policy documents (.docx)
@@ -163,8 +197,8 @@ rag-chatbot-langchain-observability/
 ### Step 1 — Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/rag-chatbot-langchain-observability.git
-cd rag-chatbot-langchain-observability
+git clone https://github.com/haswanth13901/RAG-chatbot-LangChain-observability.git
+cd RAG-chatbot-LangChain-observability
 ```
 
 ### Step 2 — Create Virtual Environment
@@ -196,11 +230,14 @@ Edit `.env`:
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 GROQ_API_KEY=your_groq_api_key_here
+APP_API_KEY=your_app_api_key_here
 ```
 
 Get your free API keys:
 - Google: https://aistudio.google.com/apikey
 - Groq: https://console.groq.com
+
+`APP_API_KEY` is your own key that clients must send in the `X-API-Key` header to access protected endpoints. Set it to any secure string.
 
 ### Step 5 — Add Policy Documents
 
@@ -225,6 +262,11 @@ All settings in `app/config.py`:
 | `EMBED_MODEL` | `gemini-embedding-2-preview` | Embedding model (always Gemini) |
 | `MEMORY_WINDOW` | `10` | Conversation turns kept per session |
 | `RETRIEVAL_K` | `4` | Policy chunks retrieved per query |
+| `SIMILARITY_THRESHOLD` | `0.3` | Minimum score to pass retrieval (0.0–1.0) |
+| `MIN_RELEVANT_CHUNKS` | `1` | Minimum chunks needed to generate an answer |
+| `RERANK_TOP_N` | `3` | Top chunks kept after reranking |
+| `RATE_LIMIT_REQUESTS` | `20` | Max requests per window per API key |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | Rate limit window in seconds |
 | `DOCS_DIR` | `./Docs` | Policy documents folder |
 | `CHROMA_DIR` | `./chroma_db` | Vector index path |
 
@@ -255,6 +297,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 - Server: `http://localhost:8000`
 - Swagger UI: `http://localhost:8000/docs`
 
+### Authenticate in Swagger
+
+Click the 🔒 **Authorize** button → enter your `APP_API_KEY` value → all requests will include the key automatically.
+
 ### Test the Chatbot
 
 ```bash
@@ -269,23 +315,35 @@ python test_chatbot.py --interactive
 
 ## API Endpoints
 
-### `POST /chat`
+### `POST /chat` 🔒
+Send a message in a conversation session. Supports optional document filtering.
+
+**Request:**
 ```json
 {
   "session_id": "user-123",
-  "message": "How many points do I earn on groceries?"
+  "message": "How many points do I earn on groceries?",
+  "doc_filter": "rewards_policy"
 }
 ```
+
+`doc_filter` is optional. Valid values: `rewards_policy`, `terms_conditions`, `null` (searches all).
+
+**Response:**
 ```json
 {
   "session_id": "user-123",
   "answer": "Per Section 2 of our Rewards Policy, groceries earn a 2x multiplier — 20 points per dollar...",
   "sources": ["RewardPlus_Rewards_Policy.docx"],
-  "timestamp": "2026-05-21T14:32:00Z"
+  "timestamp": "2026-05-21T14:32:00Z",
+  "doc_filter": "rewards_policy"
 }
 ```
 
-### `POST /transaction/reward`
+### `POST /transaction/reward` 🔒
+Process a transaction and get points calculation with natural language explanation.
+
+**Request:**
 ```json
 {
   "session_id": "user-123",
@@ -297,6 +355,10 @@ python test_chatbot.py --interactive
   "merchant": "Restaurant XYZ"
 }
 ```
+
+**Valid transaction types:** `purchase` `transfer` `bill_payment` `referral` `subscription`
+
+**Response:**
 ```json
 {
   "transaction_id": "txn-456",
@@ -309,12 +371,12 @@ python test_chatbot.py --interactive
 }
 ```
 
-**Valid transaction types:** `purchase` `transfer` `bill_payment` `referral` `subscription`
-
-### `DELETE /chat/{session_id}`
-Clears conversation memory for a session.
+### `DELETE /chat/{session_id}` 🔒
+Clears conversation memory for a session (call on user logout).
 
 ### `GET /health`
+Returns system status, active model info, and key availability. Public endpoint — no auth required.
+
 ```json
 {
   "status": "ok",
@@ -328,7 +390,9 @@ Clears conversation memory for a session.
 ```
 
 ### `GET /rewards/rules`
-Returns the full reward rules table as JSON.
+Returns the full reward rules table as JSON. Public endpoint — no auth required.
+
+> 🔒 = requires `X-API-Key` header
 
 ---
 
@@ -337,29 +401,30 @@ Returns the full reward rules table as JSON.
 ### cURL
 
 ```bash
-# Chat
+# Chat with auth
 curl -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-app-api-key" \
   -d '{"session_id": "demo", "message": "What is the dining multiplier?"}'
+
+# Chat with metadata filter
+curl -X POST "http://localhost:8000/chat" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-app-api-key" \
+  -d '{"session_id": "demo", "message": "What are my legal rights?", "doc_filter": "terms_conditions"}'
 
 # Transaction
 curl -X POST "http://localhost:8000/transaction/reward" \
   -H "Content-Type: application/json" \
-  -d '{
-    "session_id": "demo",
-    "transaction_id": "t-001",
-    "user_id": "u-001",
-    "type": "purchase",
-    "amount": 50.00,
-    "category": "groceries",
-    "merchant": "Whole Foods"
-  }'
+  -H "X-API-Key: your-app-api-key" \
+  -d '{"session_id": "demo", "transaction_id": "t-001", "user_id": "u-001", "type": "purchase", "amount": 50.00, "category": "groceries", "merchant": "Whole Foods"}'
 
-# Health
+# Health (no auth)
 curl "http://localhost:8000/health"
 
 # Clear session
-curl -X DELETE "http://localhost:8000/chat/demo"
+curl -X DELETE "http://localhost:8000/chat/demo" \
+  -H "X-API-Key: your-app-api-key"
 ```
 
 ### Python
@@ -367,11 +432,18 @@ curl -X DELETE "http://localhost:8000/chat/demo"
 ```python
 import httpx, asyncio
 
+HEADERS = {"X-API-Key": "your-app-api-key"}
+
 async def ask():
     async with httpx.AsyncClient() as client:
         r = await client.post(
             "http://localhost:8000/chat",
-            json={"session_id": "py-user", "message": "Do I earn points on bill payments?"}
+            json={
+                "session_id": "py-user",
+                "message": "Do I earn points on bill payments?",
+                "doc_filter": "rewards_policy"
+            },
+            headers=HEADERS,
         )
         print(r.json()["answer"])
 
@@ -382,33 +454,44 @@ asyncio.run(ask())
 
 ## Architecture
 
+### Production Pipeline
+
+Every request passes through a 7-stage pipeline before reaching the LLM:
+
 ```
-User Query
-    ↓
-FastAPI Router → Session Lookup / Create
-    ↓
-RAGChatSession.invoke(question)
-    ↓
-Retriever → ChromaDB MMR Search
-    ↑                    ↓
-Google Embeddings ← embed question
-    ↓
-Format prompt (context + history + question)
-    ↓
-Groq LLaMA (or Gemini fallback) → Generate answer
-    ↓
-Extract source documents → Return ChatResponse
+User Request
+     ↓
+[1] API Key Auth + Rate Limit    → 401/403/429 if fails
+     ↓
+[2] Prompt Injection Check       → blocked response if unsafe
+     ↓
+[3] Similarity Threshold         → drop chunks below 0.3 score
+     ↓
+[4] Deduplication                → remove duplicate chunks (MD5)
+     ↓
+[5] Retrieval Sufficiency        → fallback if < 1 chunk remains
+     ↓
+[6] Reranking                    → FlashrankRerank top 3
+     ↓
+[7] LLM Generation               → Groq LLaMA (or Gemini fallback)
+     ↓
+Return ChatResponse with sources
 ```
+
+### Key Components
 
 | Component | File | Purpose |
 |---|---|---|
 | API Layer | `main.py` | HTTP routing, session management |
-| RAG Session | `app/chain.py` | Retrieval + generation + memory |
-| Vector Store | `app/vector_store.py` | ChromaDB setup, document ingestion |
-| LLM | `app/llm.py` | Groq/Gemini init, system prompt |
+| Security | `app/security.py` | Injection detection, input sanitization |
+| Access Control | `app/access_control.py` | API key auth, rate limiting |
+| Prompts | `app/prompts.py` | Centralized prompt templates |
+| RAG Pipeline | `app/chain.py` | Full 7-stage production pipeline |
+| Vector Store | `app/vector_store.py` | ChromaDB, ingestion, threshold retrieval |
+| LLM | `app/llm.py` | Groq/Gemini init with fallback |
 | Reward Engine | `app/rewards.py` | Points calculation logic |
-| Config | `app/config.py` | All settings and reward rules |
-| Models | `app/models.py` | Pydantic schemas |
+| Config | `app/config.py` | All settings, thresholds, reward rules |
+| Models | `app/models.py` | Pydantic request/response schemas |
 
 ---
 
@@ -436,11 +519,13 @@ $25  Streaming         = $25  × 8  × 2x  =   400 points
 ## Roadmap
 
 - [ ] **Phase 2** — Monitoring & Observability (latency p50/p95/p99, token usage, CI/CD)
+- [ ] RAGAS evaluation pipeline for retrieval quality scoring
+- [ ] MLflow experiment tracking
+- [ ] GitHub Actions CI/CD pipeline
 - [ ] PostgreSQL backend for persistent sessions
+- [ ] BM25 hybrid search (keyword + semantic)
 - [ ] Admin panel for managing reward rules without code changes
-- [ ] Multi-language support
 - [ ] Automated test coverage to 90%+
-- [ ] Analytics dashboard for reward earning patterns
 
 ---
 
@@ -464,10 +549,15 @@ $25  Streaming         = $25  × 8  × 2x  =   400 points
 | `No .docx files found` | Add policy files to `Docs/` folder |
 | `ChromaDB corrupted` | Delete `chroma_db/` and restart |
 | `429 RESOURCE_EXHAUSTED` | Gemini quota hit — Groq handles chat automatically |
+| `401 Unauthorized` | Add `X-API-Key` header to your request |
+| `403 Forbidden` | Wrong API key — check `APP_API_KEY` in `.env` |
+| `429 Too Many Requests` | Rate limit hit — wait 60 seconds and retry |
 | `chroma-hnswlib build error` | Install Microsoft C++ Build Tools (Windows) |
 | `ModuleNotFoundError` | Run `pip install -r requirements.txt` inside `.venv` |
-| `Out of memory` | Close other apps — need ~1.6 GB free RAM |
+| `Out of memory` | Close other apps — need ~1.75 GB free RAM |
+| `[SECURITY] Blocked` | Input triggered injection detection — rephrase question |
+| `[SUFFICIENCY] Insufficient context` | Question too vague or off-topic — try rephrasing |
 
 ---
 
-**Built with ❤️ as a Phase 1 RAG learning project — Phase 2 coming soon**
+**Built with ❤️ as a production RAG learning project — Phase 2 MLOps coming soon**

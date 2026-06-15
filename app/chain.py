@@ -7,10 +7,19 @@ from langchain_community.vectorstores import Chroma
 from app.config import (
     MEMORY_WINDOW, RETRIEVAL_K,
     SIMILARITY_THRESHOLD, MIN_RELEVANT_CHUNKS,
+    RERANK_TOP_N,
 )
 from app.prompts import build_prompt, build_blocked_prompt
 from app.security import check_injection
 from app.vector_store import retrieve_with_threshold
+
+try:
+    from langchain_community.document_compressors import FlashrankRerank
+    _reranker = FlashrankRerank(top_n=RERANK_TOP_N)
+    print("[RERANK] FlashrankRerank loaded successfully")
+except Exception as e:
+    _reranker = None
+    print(f"[RERANK] FlashrankRerank unavailable — skipping rerank step ({e})")
 
 INSUFFICIENT_CONTEXT_RESPONSE = (
     "I wasn't able to find enough relevant information in the RewardPlus "
@@ -32,6 +41,18 @@ def deduplicate(docs: list[Document]) -> list[Document]:
     if removed > 0:
         print(f"[DEDUP] Removed {removed} duplicate chunk(s) — {len(unique)} unique remaining")
     return unique
+
+
+def rerank(docs: list[Document], query: str) -> list[Document]:
+    if not _reranker or len(docs) <= 1:
+        return docs
+    try:
+        reranked = _reranker.compress_documents(docs, query)
+        print(f"[RERANK] {len(docs)} chunks → top {len(reranked)} after reranking")
+        return list(reranked)
+    except Exception as e:
+        print(f"[RERANK] Failed — using original order ({e})")
+        return docs
 
 
 class RAGChatSession:
@@ -87,6 +108,8 @@ class RAGChatSession:
         if not self._is_sufficient(docs):
             print(f"[SUFFICIENCY] Insufficient context — returning fallback response")
             return INSUFFICIENT_CONTEXT_RESPONSE
+
+        docs = rerank(docs, clean_question)
 
         context = self._format_docs(docs)
         history = self._format_history()

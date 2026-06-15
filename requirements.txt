@@ -5,10 +5,12 @@ langchain-community==0.4.1
 langchain-google-genai==4.2.3
 langchain-groq==1.1.2
 langchain-text-splitters==1.1.2
+langchain-chroma==1.1.0
 chromadb==1.5.9
-docx2txt==0.8
+flashrank
 fastapi==0.136.1
 uvicorn[standard]==0.47.0
 httpx==0.28.1
 pydantic==2.13.4
 python-dotenv==1.2.2
+docx2txt==0.8
