@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Depends
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.vectorstores import Chroma
 
 from app.config import GOOGLE_API_KEY, EMBED_MODEL, REWARD_RULES, validate_config
@@ -19,7 +18,7 @@ from app.models import (
 
 app = FastAPI(
     title="RewardPlus RAG Chatbot",
-    version="3.1.0",
+    version="3.2.0",
     description="Production RAG Chatbot — LangChain · Groq · ChromaDB",
 )
 
@@ -31,14 +30,11 @@ _llm                                    = None
 @app.on_event("startup")
 async def startup():
     global _vectorstore, _llm
-
     warnings = validate_config()
     for w in warnings:
         print(f"[CONFIG WARNING] {w}")
-
     if not GOOGLE_API_KEY:
         raise RuntimeError("GOOGLE_API_KEY not found. Check your .env file.")
-
     docs         = load_and_split_documents()
     _vectorstore = build_vectorstore(docs)
     _llm         = build_llm()
@@ -52,19 +48,19 @@ def get_or_create_session(session_id: str) -> RAGChatSession:
     return _sessions[session_id]
 
 
-
 @app.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest, api_key: str = Depends(verify_api_key)):
     session = get_or_create_session(req.session_id)
     loop    = asyncio.get_event_loop()
     answer  = await loop.run_in_executor(
-        None, lambda: session.invoke(req.message)
+        None, lambda: session.invoke(req.message, doc_filter=req.doc_filter)
     )
     return ChatResponse(
         session_id=req.session_id,
         answer=answer,
         sources=session.get_sources(),
         timestamp=datetime.utcnow().isoformat() + "Z",
+        doc_filter=req.doc_filter,
     )
 
 
@@ -105,7 +101,6 @@ async def clear_session(
         del _sessions[session_id]
         return {"status": "cleared", "session_id": session_id}
     return {"status": "not_found", "session_id": session_id}
-
 
 
 @app.get("/health")

@@ -1,4 +1,5 @@
 import hashlib
+from typing import Optional
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
 from langchain_community.vectorstores import Chroma
@@ -63,7 +64,7 @@ class RAGChatSession:
             print(f"[SUFFICIENCY] Only {len(docs)} chunk(s) — minimum is {MIN_RELEVANT_CHUNKS}")
         return sufficient
 
-    def invoke(self, question: str) -> str:
+    def invoke(self, question: str, doc_filter: Optional[str] = None) -> str:
         security = check_injection(question)
         if not security.is_safe:
             print(f"[SECURITY] Blocked — {security.reason}")
@@ -77,6 +78,7 @@ class RAGChatSession:
             query=clean_question,
             k=RETRIEVAL_K,
             threshold=SIMILARITY_THRESHOLD,
+            doc_filter=doc_filter,
         )
         self.last_scores = scores
 

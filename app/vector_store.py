@@ -1,3 +1,4 @@
+from typing import Optional
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_community.document_loaders import Docx2txtLoader
 from langchain_community.vectorstores import Chroma
@@ -93,8 +94,16 @@ def retrieve_with_threshold(
     query: str,
     k: int = RETRIEVAL_K,
     threshold: float = SIMILARITY_THRESHOLD,
+    doc_filter: Optional[str] = None,
 ) -> tuple[list[Document], list[float]]:
-    scored_docs = vectorstore.similarity_search_with_relevance_scores(query, k=k)
+    filter_kwargs = {}
+    if doc_filter:
+        filter_kwargs["filter"] = {"doc_type": {"$eq": doc_filter}}
+        print(f"[METADATA] Filtering by doc_type='{doc_filter}'")
+
+    scored_docs = vectorstore.similarity_search_with_relevance_scores(
+        query, k=k, **filter_kwargs
+    )
 
     filtered = [
         (doc, score)
