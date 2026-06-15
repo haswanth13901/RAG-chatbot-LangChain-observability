@@ -1,17 +1,14 @@
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.document_loaders import Docx2txtLoader
 from langchain_community.vectorstores import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
-try:
-    from langchain_community.document_loaders import Docx2txtLoader, DirectoryLoader
-except ModuleNotFoundError as exc:
-    raise RuntimeError(
-        "Missing required package 'docx2txt'. Install it with `pip install docx2txt` "
-        "or add it to requirements.txt and reinstall dependencies."
-    ) from exc
-
-from app.config import GOOGLE_API_KEY, EMBED_MODEL, DOCS_DIR, CHROMA_DIR
+from app.config import (
+    GOOGLE_API_KEY, EMBED_MODEL,
+    DOCS_DIR, CHROMA_DIR,
+    RETRIEVAL_K, SIMILARITY_THRESHOLD,
+)
 
 
 def load_and_split_documents() -> list[Document]:
@@ -23,27 +20,15 @@ def load_and_split_documents() -> list[Document]:
     all_docs: list[Document] = []
 
     if not DOCS_DIR.exists():
-        raise FileNotFoundError(
-            f"Document directory not found at {DOCS_DIR}. Create it and add your .docx policy files."
-        )
+        raise FileNotFoundError(f"Docs directory not found: {DOCS_DIR}")
 
     docx_files = list(DOCS_DIR.glob("*.docx"))
     if not docx_files:
-        raise RuntimeError(
-            f"No .docx files found in {DOCS_DIR}. Place RewardPlus policy docs there."
-        )
+        raise RuntimeError(f"No .docx files found in {DOCS_DIR}")
 
     for docx_file in docx_files:
-        loader = Docx2txtLoader(str(docx_file))
-        try:
-            raw_docs = loader.load()
-        except ModuleNotFoundError as exc:
-            if exc.name == "docx2txt":
-                raise RuntimeError(
-                    "The 'docx2txt' package is required to load .docx files. "
-                    "Install it with `pip install docx2txt` or update requirements.txt."
-                ) from exc
-            raise
+        loader   = Docx2txtLoader(str(docx_file))
+        raw_docs = loader.load()
         for doc in raw_docs:
             doc.metadata["source_file"] = docx_file.name
             doc.metadata["doc_type"]    = (
@@ -57,20 +42,10 @@ def load_and_split_documents() -> list[Document]:
     return all_docs
 
 
-def get_embeddings() -> GoogleGenerativeAIEmbeddings:
-    return GoogleGenerativeAIEmbeddings(
-        model=EMBED_MODEL,
-        google_api_key=GOOGLE_API_KEY,
-    )
-
-
 class SafeGoogleGenerativeAIEmbeddings(GoogleGenerativeAIEmbeddings):
     def embed_documents(self, texts, *args, **kwargs):
         embeddings_list = super().embed_documents(texts, *args, **kwargs)
         if len(embeddings_list) != len(texts):
-            print(
-                "[EMBED] batch embed count mismatch; embedding each document separately"
-            )
             embeddings_list = [
                 super().embed_documents([text], *args, **kwargs)[0]
                 for text in texts
@@ -78,15 +53,19 @@ class SafeGoogleGenerativeAIEmbeddings(GoogleGenerativeAIEmbeddings):
         return embeddings_list
 
 
-def build_vectorstore(docs: list[Document]) -> Chroma:
-    embeddings = SafeGoogleGenerativeAIEmbeddings(
+def get_embeddings() -> SafeGoogleGenerativeAIEmbeddings:
+    return SafeGoogleGenerativeAIEmbeddings(
         model=EMBED_MODEL,
         google_api_key=GOOGLE_API_KEY,
     )
 
+
+def build_vectorstore(docs: list[Document]) -> Chroma:
+    embeddings = get_embeddings()
+
     if CHROMA_DIR.exists() and any(CHROMA_DIR.iterdir()):
         try:
-            vectorstore = Chroma(
+            vectorstore    = Chroma(
                 persist_directory=str(CHROMA_DIR),
                 embedding_function=embeddings,
             )
@@ -94,12 +73,8 @@ def build_vectorstore(docs: list[Document]) -> Chroma:
             if existing_count > 0:
                 print("[VECTOR] Loading existing ChromaDB from disk")
                 return vectorstore
-
-            print("[VECTOR] Existing ChromaDB is empty; removing stale database and rebuilding")
-            vectorstore = None
         except Exception:
-            print("[VECTOR] Existing ChromaDB appears corrupted; removing stale database and rebuilding")
-            vectorstore = None
+            pass
 
         import shutil
         shutil.rmtree(str(CHROMA_DIR), ignore_errors=True)
@@ -111,3 +86,26 @@ def build_vectorstore(docs: list[Document]) -> Chroma:
         persist_directory=str(CHROMA_DIR),
     )
     return vectorstore
+
+
+def retrieve_with_threshold(
+    vectorstore: Chroma,
+    query: str,
+    k: int = RETRIEVAL_K,
+    threshold: float = SIMILARITY_THRESHOLD,
+) -> tuple[list[Document], list[float]]:
+    scored_docs = vectorstore.similarity_search_with_relevance_scores(query, k=k)
+
+    filtered = [
+        (doc, score)
+        for doc, score in scored_docs
+        if score >= threshold
+    ]
+
+    if not filtered:
+        print(f"[THRESHOLD] No chunks passed threshold {threshold} — scores: {[round(s,3) for _,s in scored_docs]}")
+        return [], []
+
+    docs, scores = zip(*filtered)
+    print(f"[THRESHOLD] {len(docs)}/{k} chunks passed (threshold={threshold}) — scores: {[round(s,3) for s in scores]}")
+    return list(docs), list(scores)

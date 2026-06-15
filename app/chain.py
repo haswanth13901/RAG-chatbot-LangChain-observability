@@ -1,23 +1,22 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import Chroma
 
-from app.config import MEMORY_WINDOW, RETRIEVAL_K
+from app.config import MEMORY_WINDOW, RETRIEVAL_K, SIMILARITY_THRESHOLD
 from app.prompts import build_prompt, build_blocked_prompt
 from app.security import check_injection
+from app.vector_store import retrieve_with_threshold
 
 
 class RAGChatSession:
     def __init__(self, vectorstore: Chroma, llm):
-        self.retriever = vectorstore.as_retriever(
-            search_type="mmr",
-            search_kwargs={"k": RETRIEVAL_K, "fetch_k": 12},
-        )
-        self.llm             = llm
-        self.history:  list  = []
+        self.vectorstore            = vectorstore
+        self.llm                    = llm
+        self.history: list          = []
         self.source_documents: list = []
-        self.prompt          = build_prompt()
-        self.blocked_prompt  = build_blocked_prompt()
-        self.parser          = StrOutputParser()
+        self.last_scores: list      = []
+        self.prompt                 = build_prompt()
+        self.blocked_prompt         = build_blocked_prompt()
+        self.parser                 = StrOutputParser()
 
     def _format_history(self) -> str:
         if not self.history:
@@ -34,18 +33,22 @@ class RAGChatSession:
 
     def invoke(self, question: str) -> str:
         security = check_injection(question)
-
         if not security.is_safe:
             print(f"[SECURITY] Blocked — {security.reason}")
             blocked_chain = self.blocked_prompt | self.llm | self.parser
-            answer = blocked_chain.invoke({"question": question})
-            
-            return answer
+            return blocked_chain.invoke({"question": question})
 
         clean_question = security.sanitized
 
-        docs    = self.retriever.invoke(clean_question)
-        context = self._format_docs(docs)
+        docs, scores = retrieve_with_threshold(
+            vectorstore=self.vectorstore,
+            query=clean_question,
+            k=RETRIEVAL_K,
+            threshold=SIMILARITY_THRESHOLD,
+        )
+        self.last_scores = scores
+
+        context = self._format_docs(docs) if docs else "No relevant policy information found."
         history = self._format_history()
 
         chain  = self.prompt | self.llm | self.parser
@@ -66,6 +69,5 @@ class RAGChatSession:
             for doc in self.source_documents
         })
 
-
-def extract_sources(session: "RAGChatSession") -> list[str]:
-    return session.get_sources()
+    def get_last_scores(self) -> list[float]:
+        return [round(s, 3) for s in self.last_scores]
