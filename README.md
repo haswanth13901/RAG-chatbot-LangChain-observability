@@ -179,7 +179,10 @@ rag-chatbot-langchain-observability/
 │   ├── RewardPlus_Rewards_Policy.docx
 │   └── RewardPlus_Terms_and_Conditions.docx
 │
-└── chroma_db/                     # Auto-generated vector index (not committed)
+├── assets/
+│   └── pipeline.png                   # 7-stage RAG pipeline diagram
+│
+└── chroma_db/                         # Auto-generated vector index (not committed)
 ```
 
 ---
@@ -454,29 +457,9 @@ asyncio.run(ask())
 
 ## Architecture
 
-### Production Pipeline
+## 7-Stage Production RAG Pipeline — From Security to Generation
 
-Every request passes through a 7-stage pipeline before reaching the LLM:
-
-```
-User Request
-     ↓
-[1] API Key Auth + Rate Limit    → 401/403/429 if fails
-     ↓
-[2] Prompt Injection Check       → blocked response if unsafe
-     ↓
-[3] Similarity Threshold         → drop chunks below 0.3 score
-     ↓
-[4] Deduplication                → remove duplicate chunks (MD5)
-     ↓
-[5] Retrieval Sufficiency        → fallback if < 1 chunk remains
-     ↓
-[6] Reranking                    → FlashrankRerank top 3
-     ↓
-[7] LLM Generation               → Groq LLaMA (or Gemini fallback)
-     ↓
-Return ChatResponse with sources
-```
+![7-Stage Production RAG Pipeline](assets/pipeline.png)
 
 ### Key Components
 
