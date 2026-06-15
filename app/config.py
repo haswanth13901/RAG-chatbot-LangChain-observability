@@ -6,6 +6,7 @@ load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GROQ_API_KEY   = os.getenv("GROQ_API_KEY")
+APP_API_KEY    = os.getenv("APP_API_KEY")        
 
 GROQ_CHAT_MODEL   = "llama-3.1-8b-instant"
 GEMINI_CHAT_MODEL = "gemini-2.0-flash"
@@ -14,12 +15,16 @@ EMBED_MODEL       = "gemini-embedding-2-preview"
 MEMORY_WINDOW = 10
 RETRIEVAL_K   = 4
 
-BASE_DIR  = Path(__file__).parent.parent
-DOCS_DIR  = next(
+RATE_LIMIT_REQUESTS       = 20   
+RATE_LIMIT_WINDOW_SECONDS = 60   
+
+BASE_DIR   = Path(__file__).parent.parent
+DOCS_DIR   = next(
     (BASE_DIR / name for name in ("docs", "Docs") if (BASE_DIR / name).exists()),
     BASE_DIR / "Docs",
 )
 CHROMA_DIR = BASE_DIR / "chroma_db"
+
 
 def validate_config() -> list[str]:
     warnings = []
@@ -27,8 +32,8 @@ def validate_config() -> list[str]:
         warnings.append("GOOGLE_API_KEY is not set — embeddings will fail")
     if not GROQ_API_KEY:
         warnings.append("GROQ_API_KEY is not set — will fall back to Gemini for chat")
-    if not GROQ_API_KEY and not GOOGLE_API_KEY:
-        warnings.append("No API keys found — add them to .env file")
+    if not APP_API_KEY:
+        warnings.append("APP_API_KEY is not set — all endpoints are unprotected")
     return warnings
 
 REWARD_RULES: dict[str, dict] = {

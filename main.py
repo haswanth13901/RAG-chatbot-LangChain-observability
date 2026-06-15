@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.vectorstores import Chroma
 
@@ -11,12 +11,17 @@ from app.vector_store import load_and_split_documents, build_vectorstore
 from app.llm import build_llm, active_model_name
 from app.chain import RAGChatSession
 from app.rewards import calculate_points, build_reward_question
+from app.access_control import verify_api_key
 from app.models import (
     ChatRequest, ChatResponse,
     TransactionRequest, TransactionResponse,
 )
 
-app = FastAPI(title="RewardPlus RAG Chatbot", version="3.0.0")
+app = FastAPI(
+    title="RewardPlus RAG Chatbot",
+    version="3.1.0",
+    description="Production RAG Chatbot — LangChain · Groq · ChromaDB",
+)
 
 _sessions:    dict[str, RAGChatSession] = {}
 _vectorstore: Optional[Chroma]          = None
@@ -32,12 +37,12 @@ async def startup():
         print(f"[CONFIG WARNING] {w}")
 
     if not GOOGLE_API_KEY:
-        raise RuntimeError("GOOGLE_API_KEY not found. Needed for embeddings. Check your .env file.")
+        raise RuntimeError("GOOGLE_API_KEY not found. Check your .env file.")
 
     docs         = load_and_split_documents()
     _vectorstore = build_vectorstore(docs)
     _llm         = build_llm()
-    print(f"[READY] {_vectorstore._collection.count()} chunks indexed | chat model: {active_model_name()}")
+    print(f"[READY] {_vectorstore._collection.count()} chunks indexed | model: {active_model_name()}")
 
 
 def get_or_create_session(session_id: str) -> RAGChatSession:
@@ -47,8 +52,9 @@ def get_or_create_session(session_id: str) -> RAGChatSession:
     return _sessions[session_id]
 
 
+
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, api_key: str = Depends(verify_api_key)):
     session = get_or_create_session(req.session_id)
     loop    = asyncio.get_event_loop()
     answer  = await loop.run_in_executor(
@@ -63,7 +69,10 @@ async def chat(req: ChatRequest):
 
 
 @app.post("/transaction/reward", response_model=TransactionResponse)
-async def process_transaction(req: TransactionRequest):
+async def process_transaction(
+    req: TransactionRequest,
+    api_key: str = Depends(verify_api_key),
+):
     if req.type not in REWARD_RULES:
         raise HTTPException(
             400, f"Unknown type '{req.type}'. Valid: {list(REWARD_RULES.keys())}"
@@ -88,11 +97,15 @@ async def process_transaction(req: TransactionRequest):
 
 
 @app.delete("/chat/{session_id}")
-async def clear_session(session_id: str):
+async def clear_session(
+    session_id: str,
+    api_key: str = Depends(verify_api_key),
+):
     if session_id in _sessions:
         del _sessions[session_id]
         return {"status": "cleared", "session_id": session_id}
     return {"status": "not_found", "session_id": session_id}
+
 
 
 @app.get("/health")
